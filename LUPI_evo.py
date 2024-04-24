@@ -200,10 +200,10 @@ def main():
             "cull_proportion": 0.1,
             "init_dist": "random"}
 
-    N_gen = 600
+    N_gen = 500
     pops_by_n = dict()
     pops_by_n["param"] = param
-    for n in range(3, 4):
+    for n in range(3, 12):
         start_time = datetime.now()
         print("N = ", n)
         print("Start Time: ", start_time)
@@ -216,8 +216,8 @@ def main():
         sim.simulate(N_gen, callback=callback)
         pops_by_n[n] = pops
 
-        with open("data/sim_test.pk", 'wb') as file:
-            pickle.dump(pops, file)
+        with open("data/random_sim_data.pk", 'wb') as file:
+            pickle.dump(pops_by_n, file)
         
         end_time = datetime.now()
         print("End Time: ", end_time)
