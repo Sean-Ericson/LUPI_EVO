@@ -4,8 +4,30 @@ import random
 import pickle
 from datetime import datetime
 
+# Print iterations progress
+def printProgressBar(iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '█', printEnd = "\r"):
+    """
+    Call in a loop to create terminal progress bar
+    @params:
+        iteration   - Required  : current iteration (Int)
+        total       - Required  : total iterations (Int)
+        prefix      - Optional  : prefix string (Str)
+        suffix      - Optional  : suffix string (Str)
+        decimals    - Optional  : positive number of decimals in percent complete (Int)
+        length      - Optional  : character length of bar (Int)
+        fill        - Optional  : bar fill character (Str)
+        printEnd    - Optional  : end character (e.g. "\r", "\r\n") (Str)
+    """
+    percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
+    filledLength = int(length * iteration // total)
+    bar = fill * filledLength + '-' * (length - filledLength)
+    print(f'\r{prefix} |{bar}| {percent}% {suffix}', end = printEnd)
+    # Print New Line on Complete
+    if iteration == total: 
+        print()
+
 # Generate n numbers between 0 and 1 that sum to 1 uniformly at random
-def uniform_random_prob_vector(n):
+def sample_simplex(n):
     k = np.random.exponential(scale=1.0, size=n)
     return k / sum(k)
 
@@ -56,9 +78,6 @@ def play_lupis(strats, rounds):
             scores[winner] += 1
     return scores
 
-def element_occurances(ls, el):
-    return len([x for x in ls if x == el])
-
 # With a pair of neighbor probs starting a index, move val probability to the 
 ## left if direction < 0, and to the right if direction > 0
 def spillover_mutation(probs, index, direction, val=0.01):
@@ -91,8 +110,8 @@ def breed_strategies(prob1, prob2):
 
 # A player in the LUPI game
 class player:
-    def __init__(self, n, player_id=None):
-        self.strat = uniform_random_prob_vector(n)
+    def __init__(self, strat, player_id=None):
+        self.strat = strat
         self.age = 0
         self.id = player_id
         self.score = 0        
@@ -105,13 +124,18 @@ class LUPI_biosphere:
         self.pop_factor = population_factor
         self.population = n * population_factor
         self.param = param
-        self.players = [self.new_player() for _ in range(self.population)]
+        if param["init_dist"] == "random":
+            self.players = [self.new_player(sample_simplex(n)) for _ in range(self.population)]
+        elif param["init_dist"] == "uniform":
+            self.players = [self.new_player(np.array([1/n]*n)) for _ in range(self.population)]
+        elif isinstance(param["init_dist"], (list, np.ndarray)):
+            if len(param["init_dist"]) != n:
+                raise Exception("Initial Distribution has wrong length")
+            self.players = [self.new_player(param["init_dist"]) for _ in range(self.population)]
     
     # Return a new player with the next player id
-    def new_player(self, strat=None):
-        p = player(self.n, self.next_id)
-        if strat is not None:
-            p.strat = strat
+    def new_player(self, strat):
+        p = player(strat, self.next_id)
         self.next_id += 1
         return p
     
@@ -158,12 +182,12 @@ class LUPI_biosphere:
             
     # For the specified number of iterations: test, cull, and repopulate.        
     def simulate(self, generations, callback=None):
-        for _ in range(generations):
+        for gen in range(generations):
             for i in range(len(self.players)):
                 self.players[i].age += 1
             self.test_population()
             if callback:
-                callback(self)
+                callback(gen, self)
             self.cull()
             self.repopulate()
         self.test_population()
@@ -173,8 +197,10 @@ def main():
             "spillover_prob": 0.65,
             "spillover_val": 0.025,
             "switch_prob": 0.20,
-            "cull_proportion": 0.1}
-    gen = 10
+            "cull_proportion": 0.1,
+            "init_dist": "random"}
+
+    N_gen = 600
     pops_by_n = dict()
     pops_by_n["param"] = param
     for n in range(3, 4):
@@ -184,7 +210,10 @@ def main():
         
         sim = LUPI_biosphere(n, int(1000/n), param)
         pops = []
-        sim.simulate(gen, lambda s: pops.append(s.players))
+        def callback(generation, sim):
+            pops.append(sim.players)
+            printProgressBar(generation+1, N_gen, prefix = 'Progress:', suffix = 'Complete', length = 50)
+        sim.simulate(N_gen, callback=callback)
         pops_by_n[n] = pops
 
         with open("data/sim_test.pk", 'wb') as file:
