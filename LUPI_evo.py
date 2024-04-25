@@ -82,14 +82,15 @@ def play_lupis(strats, rounds):
 ## left if direction < 0, and to the right if direction > 0
 def spillover_mutation(probs, index, direction, val=0.01):
     direction = direction if direction else 2 * np.random.randint(2) - 1
+    direction /= abs(direction) # force direction to be +/- 1
+    if direction == 0:
+        raise Exception("Invalid direction in spillover_mutation")
     index = index if index else np.random.randint(len(probs) - 1)
     s = sum(probs)
-    if direction < 0:
-        probs[index] += min([s * val, probs[index + 1]])
-        probs[index + 1] -= min([s * val, probs[index + 1]])
-    else:
-        probs[index + 1] += min([s * val, probs[index]])
-        probs[index] -= min([s * val, probs[index]])
+    N = len(probs)
+    swap_ammount = min([s * val, probs[(index + direction) % N]])
+    probs[index] += swap_ammount
+    probs[(index + direction) % N] -= swap_ammount
     return probs
 
 # Switch the probability at index with the probability at index + 1
@@ -97,8 +98,8 @@ def spillover_mutation(probs, index, direction, val=0.01):
 def switch_mutation(probs, index):
     index = index if index else np.random.randint(len(probs) - 1)
     tmp = probs[index]
-    probs[index] = probs[index + 1]
-    probs[index + 1] = tmp
+    probs[index] = probs[(index + 1) % len(probs)]
+    probs[(index + 1) % len(probs)] = tmp
     return probs
 
 # Return the average of 2 strategies
